@@ -31,7 +31,7 @@ func GetRepositories(token, username string) ([]Repository, error) {
                     url
                     stargazerCount
                     forkCount
-					updatedAt
+					pushedAt
                     primaryLanguage {
                         name
                     }
@@ -88,7 +88,7 @@ func GetRepositories(token, username string) ([]Repository, error) {
 						URL         string    `json:"url"`
 						Stars       int       `json:"stargazerCount"`
 						Forks       int       `json:"forkCount"`
-						UpdatedAt   time.Time `json:"updatedAt"`
+						UpdatedAt   time.Time `json:"pushedAt"`
 						Language    struct {
 							Name string `json:"name"`
 						} `json:"primaryLanguage"`
@@ -124,8 +124,7 @@ func GetRepositories(token, username string) ([]Repository, error) {
 }
 
 func sortRepositories(repos []Repository) []Repository {
-	// sort by updated at
-	for i := 0; i < len(repos); i++ {
+	for i := range len(repos) {
 		for j := i + 1; j < len(repos); j++ {
 			if repos[i].UpdatedAt.Before(repos[j].UpdatedAt) {
 				repos[i], repos[j] = repos[j], repos[i]
