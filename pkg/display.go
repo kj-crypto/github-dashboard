@@ -14,6 +14,8 @@ var squareDayDisplay = DayDisplay{
 	Empty: "□",
 	Full:  "■",
 }
+var Width = 2*53 + 5
+var Height = 8 * 2
 
 // GitHub contribution colors using RGB values
 var colorPalette = []string{
@@ -80,10 +82,11 @@ func formatWeekDays(dayNo int) string {
 	return strings.Repeat(" ", 5)
 }
 
-func FormatCalendar(matrix [][]ContributionDay, withWeekHeader bool) string {
+func FormatCalendar(matrix [][]ContributionDay, leftPadding uint, withWeekHeader bool) string {
+	padding := strings.Repeat(" ", int(leftPadding))
 	calendar := FormatMonthHeader(matrix) + "\n"
 	if withWeekHeader {
-		calendar = formatWeekDays(0) + calendar
+		calendar = padding + formatWeekDays(0) + calendar
 	}
 
 	for dayNo, row := range matrix {
@@ -101,7 +104,7 @@ func FormatCalendar(matrix [][]ContributionDay, withWeekHeader bool) string {
 		if withWeekHeader {
 			rowStr = formatWeekDays(dayNo) + rowStr
 		}
-		calendar += rowStr + "\n"
+		calendar += padding + rowStr + "\n"
 	}
 	return calendar
 }
