@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	contribution "github-dashboard/pkg"
@@ -30,11 +29,16 @@ func (m BrowserModel) Init() tea.Cmd {
 	return nil
 }
 
+type errorMsg struct {
+	message string
+}
+
 type Model struct {
 	browserModel BrowserModel
 	spinner      spinner.Model
 	isLoading    bool
 	username     string
+	error        string
 }
 
 func InitModel(username string) tea.Model {
@@ -47,6 +51,7 @@ func InitModel(username string) tea.Model {
 		username:     username,
 		spinner:      sp,
 		browserModel: BrowserModel{},
+		error:        "",
 	}
 }
 
@@ -160,7 +165,7 @@ func fetchData(username string, token string) tea.Cmd {
 		for i := 0; i < 2; i++ {
 			result := <-results
 			if result.err != nil {
-				log.Fatal(result.err)
+				return errorMsg{message: result.err.Error()}
 			}
 			if result.contributions != "" {
 				contributions = result.contributions
@@ -206,6 +211,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+	case errorMsg:
+		m.error = msg.message
+		m.isLoading = false
+		return m, nil
 	}
 
 	return m, nil
@@ -266,6 +275,10 @@ func (m *BrowserModel) updateReadme() {
 }
 
 func (m Model) View() string {
+	if m.error != "" {
+		textStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render
+		return fmt.Sprintf("\n  Error: %s\n\n  Press 'q' to quit\n", textStyle(m.error))
+	}
 	if m.isLoading {
 		textStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Render
 		return fmt.Sprintf("\n %s  %s\n", m.spinner.View(), textStyle("Repositories loading ..."))
