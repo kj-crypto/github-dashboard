@@ -12,12 +12,12 @@ A terminal-based dashboard for monitoring your GitHub repositories and contribut
 ## Installation
 
 ### Using Go
-```
+```bash
 go install github.com/kj-crypto/github-dashboard@latest 
 ```
 
 ### Build from sources
-```
+```bash
 git clone https:// github.com/kj-crypto/github-dashboard.git 
 cd github-dashboard
 go build -o github-dashboard ./cmd/cli
@@ -25,9 +25,9 @@ go build -o github-dashboard ./cmd/cli
 
 ## Usage
 First setup Github token
-```
+```bash
 export GITHUB_TOKEN=your_github_token
-````
+```
 
 Run `github-dashboard <username>`
 
