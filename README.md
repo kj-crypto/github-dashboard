@@ -24,12 +24,9 @@ go build -o github-dashboard ./cmd/cli
 ```
 
 ## Usage
-First setup Github token
-```bash
-export GITHUB_TOKEN=your_github_token
-```
-
-Run `github-dashboard <username>`
+1. Setup Github token `export GITHUB_TOKEN=your_github_token`
+2. Optional: Enable debug logging `export GITHUB_DASHBOARD_DEBUG=on`. Logs will be written to `logs/*.log`
+3. Run `github-dashboard <username>`
 
 ### Navigation
  - `↑/↓`: navigate repositories

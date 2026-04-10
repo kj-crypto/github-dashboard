@@ -4,6 +4,7 @@ import (
 	"fmt"
 	contribution "github-dashboard/pkg"
 	"github-dashboard/pkg/tui"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,6 +14,14 @@ import (
 )
 
 func setupFileLogger() {
+	debug := os.Getenv("GITHUB_DASHBOARD_DEBUG")
+	debugEnabled := debug == "on" || debug == "true" || debug == "1"
+
+	if !debugEnabled {
+		log.SetOutput(io.Discard)
+		return
+	}
+
 	// Create logs directory if it doesn't exist
 	logsDir := "logs"
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
