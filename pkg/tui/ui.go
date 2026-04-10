@@ -2,10 +2,13 @@ package tui
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	contribution "github-dashboard/pkg"
 	"github-dashboard/pkg/github"
+
+	display "github-dashboard/pkg"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
@@ -15,14 +18,24 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type reposDataMsg struct {
+	repositories  []github.Repository
+	contributions string
+}
+
+func (d reposDataMsg) isEmpty() bool {
+	return len(d.repositories) == 0 && d.contributions == ""
+}
+
+type terminalSize struct {
+	width  int
+	height int
+}
+
 type BrowserModel struct {
-	repositories    []github.Repository
-	contributions   string
 	reposTable      table.Model
 	readmeViewport  viewport.Model
 	viewportFocused bool
-	width           int
-	height          int
 }
 
 func (m BrowserModel) Init() tea.Cmd {
@@ -34,12 +47,19 @@ type errorMsg struct {
 }
 
 type Model struct {
-	browserModel BrowserModel
+	browserModel *BrowserModel
 	spinner      spinner.Model
 	isLoading    bool
 	username     string
 	error        string
+	data         reposDataMsg
+	terminalSize terminalSize
 }
+
+const (
+	MinWidth  = display.Width
+	MinHeight = display.Height + 2
+)
 
 func InitModel(username string) tea.Model {
 	sp := spinner.New()
@@ -50,12 +70,14 @@ func InitModel(username string) tea.Model {
 		isLoading:    true,
 		username:     username,
 		spinner:      sp,
-		browserModel: BrowserModel{},
+		browserModel: nil,
 		error:        "",
+		data:         reposDataMsg{},
+		terminalSize: terminalSize{},
 	}
 }
 
-func initBrowserModel(repositories []github.Repository, contributions string, width, height int) BrowserModel {
+func initBrowserModel(data reposDataMsg, width, height int) *BrowserModel {
 	columns := []table.Column{
 		{Title: "Name", Width: 20},
 		{Title: "Description", Width: 30},
@@ -65,7 +87,7 @@ func initBrowserModel(repositories []github.Repository, contributions string, wi
 	}
 
 	rows := []table.Row{}
-	for _, repo := range repositories {
+	for _, repo := range data.repositories {
 		rows = append(rows, table.Row{
 			repo.Name,
 			repo.Description,
@@ -99,22 +121,13 @@ func initBrowserModel(repositories []github.Repository, contributions string, wi
 
 	vp := viewport.New(80, tableHeight+1)
 
-	m := BrowserModel{
+	m := &BrowserModel{
 		reposTable:      t,
 		readmeViewport:  vp,
-		repositories:    repositories,
-		contributions:   contributions,
 		viewportFocused: false,
-		width:           width,
-		height:          height,
 	}
-	m.updateReadme()
+	m.updateReadme(data.repositories)
 	return m
-}
-
-type reposDataMsg struct {
-	repositories  []github.Repository
-	contributions string
 }
 
 func fetchData(username string, token string) tea.Cmd {
@@ -192,72 +205,94 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.browserModel.width = msg.Width
-		m.browserModel.height = msg.Height
+		log.Printf("[UI] Window resize: %dx%d (min: %dx%d)", msg.Width, msg.Height, MinWidth, MinHeight)
+		if msg.Width < MinWidth || msg.Height < MinHeight {
+			log.Printf("[UI] Window too small - setting error")
+			m.error = "Terminal too small"
+			m.isLoading = false
+			return m, nil
+		} else {
+			if m.browserModel == nil && !m.data.isEmpty() {
+				m.browserModel = initBrowserModel(m.data, msg.Width, msg.Height)
+			}
+			m.error = ""
+		}
+		m.terminalSize.height = msg.Height
+		m.terminalSize.width = msg.Width
+		if !m.isLoading && m.error == "" {
+			m.browserModel = m.browserModel.resize(msg.Width, msg.Height)
+		}
+		return m, nil
 	case tea.KeyMsg:
+		log.Printf("[UI] Key pressed: %s", msg.String())
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		default:
-			if !m.isLoading {
-				return m.browserModel.Update(msg)
+			if !m.isLoading && m.error == "" {
+				log.Printf("[UI] Forwarding key to browser model")
+				cmd := m.browserModel.update(msg, m.data.repositories)
+				return m, cmd
 			}
+			return m, nil
 		}
 	case reposDataMsg:
-		m.browserModel = initBrowserModel(msg.repositories, msg.contributions, m.browserModel.width, m.browserModel.height)
-		m.isLoading = false
+		log.Printf("[UI] Received repos data message")
+		m.data = msg
+		if m.error == "" {
+			m.browserModel = initBrowserModel(msg, m.terminalSize.width, m.terminalSize.height)
+			m.isLoading = false
+		}
 		return m, nil
 	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		if m.isLoading {
+			log.Printf("[UI] Spinner tick")
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 	case errorMsg:
+		log.Printf("[UI] Error message: %s", msg.message)
 		m.error = msg.message
 		m.isLoading = false
 		return m, nil
 	}
-
 	return m, nil
 }
 
-func (m *BrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "esc", "left", "h", "right", "l":
-			m.viewportFocused = !m.viewportFocused
-			return m, nil
-		default:
-			if m.viewportFocused {
-				var cmd tea.Cmd
-				m.readmeViewport, cmd = m.readmeViewport.Update(msg)
-				return m, cmd
+func (m *BrowserModel) update(msg tea.KeyMsg, repos []github.Repository) tea.Cmd {
+	switch msg.String() {
+	case "esc", "left", "h", "right", "l":
+		m.viewportFocused = !m.viewportFocused
+		return nil
+	default:
+		if m.viewportFocused {
+			var cmd tea.Cmd
+			m.readmeViewport, cmd = m.readmeViewport.Update(msg)
+			return cmd
 
-			} else {
-				var cmd tea.Cmd
-				m.reposTable, cmd = m.reposTable.Update(msg)
-				m.updateReadme()
-				return m, cmd
-			}
+		} else {
+			var cmd tea.Cmd
+			m.reposTable, cmd = m.reposTable.Update(msg)
+			m.updateReadme(repos)
+			return cmd
 		}
 	}
-	return m, nil
 }
 
-func (m *BrowserModel) updateReadme() {
-	if len(m.repositories) == 0 {
+func (m *BrowserModel) updateReadme(repos []github.Repository) {
+	if len(repos) == 0 {
 		return
 	}
 
 	selectedIdx := m.reposTable.Cursor()
-	if selectedIdx >= len(m.repositories) {
+	if selectedIdx >= len(repos) {
 		return
 	}
 
 	// Get the README content
-	readme := m.repositories[selectedIdx].Readme
+	readme := repos[selectedIdx].Readme
 	if readme == "" {
 		readme = "# No README available\n\nThis repository doesn't have a README file."
 	}
@@ -283,10 +318,10 @@ func (m Model) View() string {
 		textStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Render
 		return fmt.Sprintf("\n %s  %s\n", m.spinner.View(), textStyle("Repositories loading ..."))
 	}
-	return m.browserModel.View()
+	return m.browserModel.view(m.data.contributions)
 }
 
-func (m BrowserModel) View() string {
+func (m BrowserModel) view(contributions string) string {
 	tableView := lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("63")).
@@ -311,7 +346,7 @@ func (m BrowserModel) View() string {
 
 	container := lipgloss.JoinVertical(
 		lipgloss.Left,
-		lipgloss.PlaceHorizontal(contribution.Width, lipgloss.Center, m.contributions),
+		lipgloss.PlaceHorizontal(contribution.Width, lipgloss.Center, contributions),
 		lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			tableView,
@@ -350,4 +385,9 @@ func formatTimeAgo(t time.Time) string {
 	}
 
 	return "now"
+}
+
+func (m *BrowserModel) resize(width, height int) *BrowserModel {
+	// TODO: Implement viewport resizing logic
+	return m
 }

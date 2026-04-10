@@ -14,8 +14,9 @@ var squareDayDisplay = DayDisplay{
 	Empty: "□",
 	Full:  "■",
 }
-var Width = 2*53 + 5
-var Height = 8 * 2
+
+const Width = 2*53 + 5
+const Height = 8 * 2
 
 // GitHub contribution colors using RGB values
 var colorPalette = []string{
