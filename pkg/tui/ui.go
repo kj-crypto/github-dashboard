@@ -10,12 +10,12 @@ import (
 
 	display "github-dashboard/pkg"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type reposDataMsg struct {
@@ -32,10 +32,20 @@ type terminalSize struct {
 	height int
 }
 
+type Alignment int
+
+const (
+	AlignmentHorizontal Alignment = iota
+	AlignmentVertical
+)
+
 type BrowserModel struct {
 	reposTable      table.Model
 	readmeViewport  viewport.Model
 	viewportFocused bool
+	alignment       Alignment
+	tableWidth      int
+	minTableHeight  int
 }
 
 func (m BrowserModel) Init() tea.Cmd {
@@ -57,9 +67,16 @@ type Model struct {
 }
 
 const (
-	MinWidth  = display.Width
-	MinHeight = display.Height + 2
+	MinWidth         = display.Width
+	MinHeight        = display.Height + TopBottomPadding*2 + 3
+	TopBottomPadding = 1
+	LeftRightPadding = 2
 )
+
+var tableStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("63")).
+	Padding(TopBottomPadding, LeftRightPadding)
 
 func InitModel(username string) tea.Model {
 	sp := spinner.New()
@@ -77,7 +94,7 @@ func InitModel(username string) tea.Model {
 	}
 }
 
-func initBrowserModel(data reposDataMsg, width, height int) *BrowserModel {
+func initBrowserModel(data reposDataMsg, size terminalSize) *BrowserModel {
 	columns := []table.Column{
 		{Title: "Name", Width: 20},
 		{Title: "Description", Width: 30},
@@ -97,14 +114,18 @@ func initBrowserModel(data reposDataMsg, width, height int) *BrowserModel {
 		})
 	}
 
-	const tableMinHeight = 2
-	tableHeight := max(height-contribution.Height-1, tableMinHeight)
+	tableWidth := 0
+	for _, col := range columns {
+		tableWidth += col.Width
+	}
 
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		table.WithHeight(tableHeight),
+		table.WithWidth(tableWidth),
+		// TODO: remove it here
+		table.WithHeight(20),
 	)
 
 	s := table.DefaultStyles()
@@ -119,14 +140,48 @@ func initBrowserModel(data reposDataMsg, width, height int) *BrowserModel {
 		Bold(true)
 	t.SetStyles(s)
 
-	vp := viewport.New(80, tableHeight+1)
+	cellXoffset := s.Cell.GetHorizontalFrameSize()
+	log.Printf("Table width: %d", tableWidth)
+	log.Printf("Header horizontal frame size: %d", s.Header.GetHorizontalFrameSize())
+	log.Printf("Style frame size: %d", tableStyle.GetHorizontalFrameSize())
+	log.Printf("Cell X offset: %d, with all columns: %d", cellXoffset, cellXoffset*len(t.Columns()))
+	tableWidth += s.Header.GetHorizontalFrameSize() + tableStyle.GetHorizontalFrameSize() + 2*LeftRightPadding
+	log.Printf("Total table width: %d", tableWidth)
+
+	vp := viewport.New(viewport.WithWidth(80), viewport.WithHeight(21))
+	// vp := viewport.New(viewport.WithWidth(size.width), viewport.WithHeight(size.height))
 
 	m := &BrowserModel{
 		reposTable:      t,
 		readmeViewport:  vp,
 		viewportFocused: false,
+		alignment:       AlignmentHorizontal,
+		tableWidth:      tableWidth,
 	}
 	m.updateReadme(data.repositories)
+	m.resize(size)
+	return m
+}
+
+func (m *BrowserModel) resize(term terminalSize) *BrowserModel {
+	log.Printf("Actual table width: %d", m.reposTable.Width())
+	// maxHorizontalSpace := 2 * (m.reposTable.Width() + 2*LeftRightPadding)
+	// minHorizontalSpace := int(0.75 * float64(maxHorizontalSpace))
+
+	// if term.width >= maxHorizontalSpace {
+	// 	m.readmeViewport.SetWidth(m.reposTable.Width())
+	// } else if term.width < minHorizontalSpace {
+	// 	m.alignment = AlignmentVertical
+	// 	m.readmeViewport.SetWidth(m.reposTable.Width())
+	// } else {
+	// 	width := term.width - m.reposTable.Width() - 4*LeftRightPadding
+	// 	m.readmeViewport.SetWidth(width)
+	// }
+
+	// if m.alignment == AlignmentVertical {
+	// 	m.readmeViewport.SetHeight(term.height - 3)
+	// }
+
 	return m
 }
 
@@ -206,6 +261,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		log.Printf("[UI] Window resize: %dx%d (min: %dx%d)", msg.Width, msg.Height, MinWidth, MinHeight)
+		m.terminalSize.height = msg.Height
+		m.terminalSize.width = msg.Width
 		if msg.Width < MinWidth || msg.Height < MinHeight {
 			log.Printf("[UI] Window too small - setting error")
 			m.error = "Terminal too small"
@@ -213,14 +270,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		} else {
 			if m.browserModel == nil && !m.data.isEmpty() {
-				m.browserModel = initBrowserModel(m.data, msg.Width, msg.Height)
+				m.browserModel = initBrowserModel(m.data, m.terminalSize)
 			}
 			m.error = ""
 		}
-		m.terminalSize.height = msg.Height
-		m.terminalSize.width = msg.Width
 		if !m.isLoading && m.error == "" {
-			m.browserModel = m.browserModel.resize(msg.Width, msg.Height)
+			m.browserModel = m.browserModel.resize(m.terminalSize)
 		}
 		return m, nil
 	case tea.KeyMsg:
@@ -240,7 +295,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Printf("[UI] Received repos data message")
 		m.data = msg
 		if m.error == "" {
-			m.browserModel = initBrowserModel(msg, m.terminalSize.width, m.terminalSize.height)
+			m.browserModel = initBrowserModel(msg, m.terminalSize)
 			m.isLoading = false
 		}
 		return m, nil
@@ -298,7 +353,7 @@ func (m *BrowserModel) updateReadme(repos []github.Repository) {
 	}
 
 	// Render markdown
-	width := m.readmeViewport.Width - 4 // Account for padding
+	width := m.readmeViewport.Width() - 4 // TODO: Account for padding
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"),
 		glamour.WithWordWrap(width),
@@ -309,51 +364,57 @@ func (m *BrowserModel) updateReadme(repos []github.Repository) {
 	m.readmeViewport.GotoTop()
 }
 
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	if m.error != "" {
 		textStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render
-		return fmt.Sprintf("\n  Error: %s\n\n  Press 'q' to quit\n", textStyle(m.error))
+		v := tea.NewView(fmt.Sprintf("\n  Error: %s\n\n  Press 'q' to quit\n", textStyle(m.error)))
+		v.AltScreen = true
+		return v
 	}
 	if m.isLoading {
 		textStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Render
-		return fmt.Sprintf("\n %s  %s\n", m.spinner.View(), textStyle("Repositories loading ..."))
+		v := tea.NewView(fmt.Sprintf("\n %s  %s\n", m.spinner.View(), textStyle("Repositories loading ...")))
+		v.AltScreen = true
+		return v
 	}
-	return m.browserModel.view(m.data.contributions)
+	v := m.browserModel.view(m.data.contributions)
+	v.AltScreen = true
+	return v
 }
 
-func (m BrowserModel) view(contributions string) string {
-	tableView := lipgloss.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("63")).
-		Padding(1, 2).
-		Render(m.reposTable.View())
-
-	view := ""
+func (m BrowserModel) view(contributions string) tea.View {
+	style := tableStyle
 	if m.viewportFocused {
-		view = lipgloss.NewStyle().
-			BorderStyle(lipgloss.ThickBorder()).
-			BorderForeground(lipgloss.Color("63")).
-			Padding(1, 2).
-			Render(m.readmeViewport.View())
-
-	} else {
-		view = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("63")).
-			Padding(1, 2).
-			Render(m.readmeViewport.View())
+		style = style.BorderStyle(lipgloss.ThickBorder())
 	}
 
-	container := lipgloss.JoinVertical(
-		lipgloss.Left,
-		lipgloss.PlaceHorizontal(contribution.Width, lipgloss.Center, contributions),
-		lipgloss.JoinHorizontal(
+	tableView := tableStyle.Render(m.reposTable.View())
+	view := style.Render(m.readmeViewport.View())
+
+	var details string
+	if m.alignment == AlignmentHorizontal {
+		details = lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			tableView,
 			view,
-		),
+		)
+	} else {
+		details = lipgloss.JoinVertical(
+			lipgloss.Left,
+			tableView,
+			view,
+		)
+	}
+	style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.BlockBorder()).
+		BorderForeground(lipgloss.Color("240"))
+	container := lipgloss.JoinVertical(
+		lipgloss.Left,
+		// lipgloss.PlaceHorizontal(contribution.Width, lipgloss.Center, contributions),
+		style.Render(contributions),
+		details,
 	)
-	return container
+	return tea.NewView(container)
 }
 
 func formatTimeAgo(t time.Time) string {
@@ -385,9 +446,4 @@ func formatTimeAgo(t time.Time) string {
 	}
 
 	return "now"
-}
-
-func (m *BrowserModel) resize(width, height int) *BrowserModel {
-	// TODO: Implement viewport resizing logic
-	return m
 }

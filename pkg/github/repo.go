@@ -31,7 +31,7 @@ func GetRepositories(token, username string) ([]Repository, error) {
                     url
                     stargazerCount
                     forkCount
-					pushedAt
+                    pushedAt
                     primaryLanguage {
                         name
                     }
