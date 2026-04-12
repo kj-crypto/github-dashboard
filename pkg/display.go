@@ -42,31 +42,30 @@ func colorDispatcher(count uint64) string {
 	return colorPalette[4]
 }
 
-func FormatMonthHeader(matrix [][]ContributionDay) string {
-	first_row := matrix[0]
-	last_month := first_row[0].Month
-	last_month_position := 0
+func FormatMonthHeader(firstRow []ContributionDay) string {
+	lastMonth := firstRow[0].Month
+	lastMonthPosition := 0
 
-	var output = ""
-	for i, day := range first_row {
-		if day.Month != last_month {
-			span := i - last_month_position
-			last_month = day.Month
-			last_month_position = i
+	output := ""
+	for i, contDay := range firstRow {
+		if contDay.Month != lastMonth {
+			span := i - lastMonthPosition
+			lastMonth = contDay.Month
+			lastMonthPosition = i
 
 			if span < 2 {
 				output += strings.Repeat(" ", 2*span)
 				continue
 			}
-			output += fmt.Sprintf("%s%s", day.GetPreviousMonthAbreviation(), strings.Repeat(" ", 2*span-3))
+			output += fmt.Sprintf("%s%s", contDay.GetPreviousMonthAbreviation(), strings.Repeat(" ", 2*span-3))
 		}
 	}
-	if len(first_row)-last_month_position >= 2 {
-		span := len(first_row) - last_month_position
-		day := first_row[last_month_position]
-		output += fmt.Sprintf("%s%s", day.GetMonthAbreviation(), strings.Repeat(" ", 2*span-3))
+	if len(firstRow)-lastMonthPosition >= 2 {
+		span := len(firstRow) - lastMonthPosition
+		contDay := firstRow[lastMonthPosition]
+		output += fmt.Sprintf("%s%s", contDay.GetMonthAbreviation(), strings.Repeat(" ", 2*span-3))
 	}
-
+	output = strings.TrimRight(output, " ")
 	return output
 }
 
@@ -85,7 +84,7 @@ func formatWeekDays(dayNo int) string {
 
 func FormatCalendar(matrix [][]ContributionDay, leftPadding uint, withWeekHeader bool) string {
 	padding := strings.Repeat(" ", int(leftPadding))
-	calendar := FormatMonthHeader(matrix) + "\n"
+	calendar := FormatMonthHeader(matrix[0]) + "\n"
 	if withWeekHeader {
 		calendar = padding + formatWeekDays(0) + calendar
 	}
@@ -105,7 +104,7 @@ func FormatCalendar(matrix [][]ContributionDay, leftPadding uint, withWeekHeader
 		if withWeekHeader {
 			rowStr = formatWeekDays(dayNo) + rowStr
 		}
-		calendar += padding + rowStr + "\n"
+		calendar += padding + strings.TrimRight(rowStr, " ") + "\n"
 	}
-	return calendar
+	return strings.TrimRight(calendar, "\n")
 }
