@@ -1,0 +1,132 @@
+:root {
+  --valid-bckg: #222;
+  --valid-border: 1px solid #555;
+  --panel-width: 600px;
+}
+
+body {
+  margin: 0;
+  background: #111;
+  color: #eee;
+  font-family: system-ui, sans-serif;
+}
+
+#main {
+  text-align: left;
+  max-width: var(--panel-width);
+  padding: 0px 20px;
+}
+
+#title {
+  text-align: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+#panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 20px;
+  padding-bottom: 5px;
+}
+
+.input-group label {
+  justify-content: space-between;
+}
+
+input,
+select {
+  background: var(--valid-bckg);
+  border: var(--valid-border);
+  color: #eee;
+  padding: 4px 6px;
+  border-radius: 4px;
+  flex: 0 1 auto;
+}
+
+input[type='number'] {
+  width: 120px;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+select {
+  min-width: 100px;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+input:focus {
+  border-color: #4a9eff;
+  box-shadow: 0 0 4px #4a9eff55;
+}
+
+input.invalid:focus {
+  border-color: #a62828;
+  box-shadow: 0 0 6px #a62828aa;
+  background: #2a0f0f;
+}
+
+#grid {
+  width: 100vw;
+  height: 100vh;
+}
+
+#status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px;
+}
+
+#status span:last-child::first-letter {
+  text-transform: uppercase;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #666;
+}
+
+.status-dot.connecting {
+  background: #4ade80;
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot.connected {
+  background: #4ade80;
+}
+
+.status-dot.disconnected,
+.status-dot.error {
+  background: #ef4444;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

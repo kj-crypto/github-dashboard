@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Grid Control Panel</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div id="main">
+      <h2 id="title">Grid Control Panel</h2>
+
+      <div id="panel">
+        <div class="input-group cell">
+          <label
+            >Cell Width
+            <input type="number" id="cellW" value="10" title="Cell width must be between 1 and 500" />
+          </label>
+          <label
+            >Cell Height
+            <input type="number" id="cellH" value="20" title="Cell height must be between 1 and 500" />
+          </label>
+        </div>
+
+        <div class="input-group offset">
+          <label
+            >X offset
+            <input type="number" id="offsetX" value="0" title="X offset must be between -5000 and 5000" />
+          </label>
+          <label
+            >Y offset
+            <input type="number" id="offsetY" value="0" title="Y offset must be between -5000 and 5000" />
+          </label>
+        </div>
+
+        <label
+          >Terminal
+          <select id="preset">
+            <option value="custom">Custom</option>
+            <option value="kitty">Kitty</option>
+            <option value="alacritty">Alacritty</option>
+            <option value="iterm">iTerm2</option>
+            <option value="warp">Warp</option>
+          </select>
+        </label>
+        <label
+          >Theme
+          <select id="theme">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="solarized">Solarized</option>
+            <option value="nord">Nord</option>
+            <option value="gruvbox">Gruvbox</option>
+          </select>
+        </label>
+
+        <label><input type="checkbox" id="snap" checked /> Snap</label>
+        <label><input type="checkbox" id="diagonal" /> Diagonals</label>
+      </div>
+
+      <div id="status">
+        <span class="status-dot connecting"></span>
+        <span>Connecting</span>
+      </div>
+    </div>
+    <script type="module" src="/static/js/navbar.js"></script>
+  </body>
+</html>

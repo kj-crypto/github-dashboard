@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Grid</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <svg id="grid">
+      <g id="grid-lines"></g>
+
+      <line id="measure-line" stroke="red" stroke-width="1" visibility="hidden" />
+      <text id="measure-text" fill="red" font-size="14" visibility="hidden"></text>
+      <line id="snap-v" stroke="orange" stroke-width="1" visibility="hidden" />
+      <line id="snap-h" stroke="orange" stroke-width="1" visibility="hidden" />
+
+      <g id="ruler-h"></g>
+      <g id="ruler-v"></g>
+    </svg>
+
+    <script type="module" src="/static/js/grid.js"></script>
+  </body>
+</html>
