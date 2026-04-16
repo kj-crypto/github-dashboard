@@ -21,6 +21,7 @@ export const createWSClient = function (url) {
   };
 
   const connect = () => {
+    console.log('WS connecting to', url);
     socket = new WebSocket(url);
 
     onStatusHandler('connecting');

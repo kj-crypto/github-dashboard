@@ -3,19 +3,21 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
 
-export const PORT = 8181;
-
+const PORT = process.env.PORT || 8181;
 const app = express();
 
-app.use('/static', express.static(path.join(import.meta.dirname, 'webpage')));
+const isVite = process.env.VITE_DEV_SERVER === 'true';
+if (!isVite) {
+  app.use('/static', express.static(path.join(import.meta.dirname, 'webpage')));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(import.meta.dirname, 'webpage/index.html'));
-});
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(import.meta.dirname, 'webpage/index.html'));
+  });
 
-app.get('/grid', (req, res) => {
-  res.sendFile(path.join(import.meta.dirname, 'webpage/grid.html'));
-});
+  app.get('/grid', (req, res) => {
+    res.sendFile(path.join(import.meta.dirname, 'webpage/grid.html'));
+  });
+}
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
