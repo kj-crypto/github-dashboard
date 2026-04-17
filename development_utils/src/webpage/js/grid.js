@@ -60,6 +60,7 @@ const createGrid = function () {
       line.setAttribute('x2', x);
       line.setAttribute('y2', height);
       line.setAttribute('stroke', stroke);
+      line.setAttribute('stroke-width', 1);
       line.style.display = 'block';
     }
 
@@ -87,6 +88,7 @@ const createGrid = function () {
       line.setAttribute('x2', width);
       line.setAttribute('y2', y);
       line.setAttribute('stroke', stroke);
+      line.setAttribute('stroke-width', 1);
       line.style.display = 'block';
     }
 
@@ -138,7 +140,7 @@ const createGrid = function () {
   };
 };
 
-function enableSnapIndicator(animator) {
+function enableSnapIndicator(animator, measurer) {
   const snapV = document.getElementById('snap-v');
   const snapH = document.getElementById('snap-h');
 
@@ -166,6 +168,7 @@ function enableSnapIndicator(animator) {
 
     const snapX = offsetX + col * cellW;
     const snapY = offsetY + row * cellH;
+    measurer.updateSnap(snapX, snapY);
 
     const dx = Math.abs(mouseX - snapX);
     const dy = Math.abs(mouseY - snapY);
@@ -173,7 +176,7 @@ function enableSnapIndicator(animator) {
     // vertical snap
     if (dx < SNAP_THRESHOLD) {
       snapV.setAttribute('x1', snapX);
-      snapV.setAttribute('y1', offsetY);
+      snapV.setAttribute('y1', 0);
       snapV.setAttribute('x2', snapX);
       snapV.setAttribute('y2', window.innerHeight);
       snapV.setAttribute('visibility', 'visible');
@@ -183,7 +186,7 @@ function enableSnapIndicator(animator) {
 
     // horizontal snap
     if (dy < SNAP_THRESHOLD) {
-      snapH.setAttribute('x1', offsetX);
+      snapH.setAttribute('x1', 0);
       snapH.setAttribute('y1', snapY);
       snapH.setAttribute('x2', window.innerWidth);
       snapH.setAttribute('y2', snapY);
@@ -322,6 +325,236 @@ const createRulers = function () {
   };
 };
 
+const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00', textPadding = 40) {
+  const measureH = [];
+  const measureV = [];
+
+  let hIndex = 0;
+  let vIndex = 0;
+
+  let lastSnapX = null;
+  let lastSnapY = null;
+  let dimH = null;
+  let dimV = null;
+
+  const updateSnap = (snapX, snapY) => {
+    lastSnapX = snapX;
+    lastSnapY = snapY;
+  };
+
+  const isLeftClick = (mouseEvent) => mouseEvent.button === 0;
+  const isRightClick = (mouseEvent) => mouseEvent.button === 2;
+
+  let clickPending = false;
+
+  svg.addEventListener('mousedown', (e) => {
+    clickPending = true;
+    setTimeout(() => (clickPending = false), 150);
+
+    const { snap } = animator.getCurrent();
+    if (!snap) return;
+    if (isLeftClick(e)) addHorizontalMeasure();
+    if (isRightClick(e)) addVerticalMeasure();
+  });
+  svg.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  window.addEventListener('focus', () => {
+    console.log('Window focused. clicked before: ' + clickPending);
+    const info = document.getElementById('info');
+    const { snap } = animator.getCurrent();
+
+    setTimeout(() => {
+      let text = `Focused at ${new Date().toLocaleTimeString()} Clicked: ${clickPending}`;
+      if (snap && clickPending) {
+        ws.sendJSON({ type: 'clickedAndFocused' });
+        text += ' WS: JSON send';
+      }
+      clickPending = false;
+      info.textContent = text;
+    }, 100);
+  });
+
+  const addVerticalMeasure = () => {
+    if (lastSnapY === null) return;
+
+    let line = measureH[hIndex];
+    if (!line) {
+      line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('stroke', strokeColor);
+      line.setAttribute('stroke-width', strokeWidth);
+      measureGroup.appendChild(line);
+      measureH[hIndex] = line;
+    }
+
+    line.setAttribute('x1', 0);
+    line.setAttribute('x2', window.innerWidth);
+    line.setAttribute('y1', lastSnapY);
+    line.setAttribute('y2', lastSnapY);
+    line.style.display = 'block';
+
+    hIndex = (hIndex + 1) % 2;
+    updateDimensions();
+  };
+
+  const addHorizontalMeasure = function () {
+    if (lastSnapX === null) return;
+
+    let line = measureV[vIndex];
+    if (!line) {
+      line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('stroke', strokeColor);
+      line.setAttribute('stroke-width', strokeWidth);
+      measureGroup.appendChild(line);
+      measureV[vIndex] = line;
+    }
+
+    line.setAttribute('y1', 0);
+    line.setAttribute('y2', window.innerHeight);
+    line.setAttribute('x1', lastSnapX);
+    line.setAttribute('x2', lastSnapX);
+    line.style.display = 'block';
+
+    vIndex = (vIndex + 1) % 2;
+    updateDimensions();
+  };
+
+  const drawHorizontalDimension = function (x1, x2, cellW, y) {
+    if (!dimH) {
+      dimH = {
+        line: document.createElementNS('http://www.w3.org/2000/svg', 'line'),
+        arrowL: document.createElementNS('http://www.w3.org/2000/svg', 'path'),
+        arrowR: document.createElementNS('http://www.w3.org/2000/svg', 'path'),
+        text: document.createElementNS('http://www.w3.org/2000/svg', 'text'),
+      };
+
+      Object.values(dimH).forEach((el) => {
+        el.setAttribute('stroke', '#0f0');
+        el.setAttribute('fill', '#0f0');
+        el.setAttribute('stroke-width', 1.2);
+        dimGroup.appendChild(el);
+      });
+
+      dimH.text.setAttribute('font-size', 12);
+      dimH.text.setAttribute('fill', '#0f0');
+    }
+
+    // main line
+    dimH.line.setAttribute('x1', x1);
+    dimH.line.setAttribute('y1', y);
+    dimH.line.setAttribute('x2', x2);
+    dimH.line.setAttribute('y2', y);
+
+    // arrow size
+    const s = 6;
+
+    // left arrow
+    dimH.arrowL.setAttribute('d', `M ${x1} ${y} l ${s} ${-s / 2} l 0 ${s} Z`);
+
+    // right arrow
+    dimH.arrowR.setAttribute('d', `M ${x2} ${y} l ${-s} ${-s / 2} l 0 ${s} Z`);
+
+    // text
+    dimH.text.textContent = Math.trunc(Math.abs(x2 - x1) / cellW);
+    dimH.text.setAttribute('x', (x1 + x2) / 2);
+    dimH.text.setAttribute('y', y - 8);
+
+    // show
+    Object.values(dimH).forEach((el) => (el.style.display = 'block'));
+  };
+
+  const drawVerticalDimension = function (y1, y2, cellH, x) {
+    if (!dimV) {
+      dimV = {
+        line: document.createElementNS('http://www.w3.org/2000/svg', 'line'),
+        arrowT: document.createElementNS('http://www.w3.org/2000/svg', 'path'),
+        arrowB: document.createElementNS('http://www.w3.org/2000/svg', 'path'),
+        text: document.createElementNS('http://www.w3.org/2000/svg', 'text'),
+      };
+
+      Object.values(dimV).forEach((el) => {
+        el.setAttribute('stroke', '#0f0');
+        el.setAttribute('fill', '#0f0');
+        el.setAttribute('stroke-width', 1.2);
+        dimGroup.appendChild(el);
+      });
+
+      dimV.text.setAttribute('font-size', 12);
+      dimV.text.setAttribute('fill', '#0f0');
+    }
+
+    // main line
+    dimV.line.setAttribute('x1', x);
+    dimV.line.setAttribute('y1', y1);
+    dimV.line.setAttribute('x2', x);
+    dimV.line.setAttribute('y2', y2);
+
+    // arrow size
+    const s = 6;
+
+    // top arrow
+    dimV.arrowT.setAttribute('d', `M ${x} ${y1} l ${-s / 2} ${s} l ${s} 0 Z`);
+
+    // bottom arrow
+    dimV.arrowB.setAttribute('d', `M ${x} ${y2} l ${-s / 2} ${-s} l ${s} 0 Z`);
+
+    // text
+    dimV.text.textContent = Math.trunc(Math.abs(y2 - y1) / cellH);
+    dimV.text.setAttribute('x', x + 8);
+    dimV.text.setAttribute('y', (y1 + y2) / 2);
+
+    // show
+    Object.values(dimV).forEach((el) => (el.style.display = 'block'));
+  };
+
+  function updateDimensions() {
+    const { cellH, cellW } = animator.getCurrent();
+    if (measureV.length >= 2 && measureV[0] && measureV[1]) {
+      const x1 = parseFloat(measureV[0].getAttribute('x1'));
+      const x2 = parseFloat(measureV[1].getAttribute('x1'));
+      drawHorizontalDimension(x1, x2, cellW, textPadding);
+    } else if (dimH) {
+      Object.values(dimH).forEach((el) => (el.style.display = 'none'));
+    }
+
+    // horizontal measurement lines → vertical dimension
+    if (measureH.length >= 2 && measureH[0] && measureH[1]) {
+      const y1 = parseFloat(measureH[0].getAttribute('y1'));
+      const y2 = parseFloat(measureH[1].getAttribute('y1'));
+      drawVerticalDimension(y1, y2, cellH, textPadding);
+    } else if (dimV) {
+      Object.values(dimV).forEach((el) => (el.style.display = 'none'));
+    }
+  }
+
+  const clearMeasurements = function () {
+    measureH.forEach((l) => l.remove());
+    measureV.forEach((l) => l.remove());
+    measureH.length = 0;
+    measureV.length = 0;
+    if (dimH) {
+      Object.values(dimH).forEach((el) => el.remove());
+      dimH = null;
+    }
+    if (dimV) {
+      Object.values(dimV).forEach((el) => el.remove());
+      dimV = null;
+    }
+  };
+
+  const windowResized = function () {
+    measureH.forEach((l) => l.setAttribute('x2', window.innerWidth));
+    measureV.forEach((l) => l.setAttribute('x2', window.innerWidth));
+  };
+
+  return {
+    updateSnap,
+    addHorizontalMeasure,
+    addVerticalMeasure,
+    clearMeasurements,
+    windowResized,
+  };
+};
+
 const drawGrid = createGrid();
 const drawRulers = createRulers();
 
@@ -330,8 +563,9 @@ const animator = createGridAnimator((settings) => {
   drawRulers(settings);
 }, defaultSettings);
 
-animator.setDuration(20);
-enableSnapIndicator(animator);
+animator.setDuration(50);
+const measurer = createMeasure(animator);
+enableSnapIndicator(animator, measurer);
 
 drawGrid(defaultSettings);
 
@@ -348,60 +582,13 @@ ws.onStatusChange(function (status) {
 
 window.addEventListener('resize', () => {
   animator.push(animator.getCurrent());
+  measurer.windowResized();
 });
 
-let measuring = false;
-let startX = 0;
-let startY = 0;
-
-const pixelToGrid = function (x, y, settings) {
-  const { offsetX, offsetY, cellW, cellH } = settings;
-  return {
-    col: (x - offsetX) / cellW,
-    row: (y - offsetY) / cellH,
-  };
-};
-
-svg.addEventListener('mousedown', (e) => {
-  measuring = true;
-  startX = e.clientX;
-  startY = e.clientY;
-
-  measureLine.setAttribute('x1', startX);
-  measureLine.setAttribute('y1', startY);
-  measureLine.setAttribute('x2', startX);
-  measureLine.setAttribute('y2', startY);
-  measureLine.setAttribute('visibility', 'visible');
-
-  measureText.setAttribute('visibility', 'visible');
-});
-
-svg.addEventListener('mousemove', (e) => {
-  if (!measuring) return;
-
-  const x = e.clientX;
-  const y = e.clientY;
-
-  measureLine.setAttribute('x2', x);
-  measureLine.setAttribute('y2', y);
-
-  // Convert to grid units
-  const cur = animator.getCurrent();
-  const startGrid = pixelToGrid(startX, startY, cur);
-  const endGrid = pixelToGrid(x, y, cur);
-
-  const dCol = endGrid.col - startGrid.col;
-  const dRow = endGrid.row - startGrid.row;
-  const distCells = Math.sqrt(dCol * dCol + dRow * dRow);
-
-  measureText.textContent = `ΔX: ${dCol.toFixed(2)}  ΔY: ${dRow.toFixed(2)}  Dist: ${distCells.toFixed(2)} cells`;
-
-  measureText.setAttribute('x', x + 10);
-  measureText.setAttribute('y', y - 10);
-});
-
-svg.addEventListener('mouseup', () => {
-  measuring = false;
-  measureLine.setAttribute('visibility', 'hidden');
-  measureText.setAttribute('visibility', 'hidden');
+window.addEventListener('keydown', (e) => {
+  const { snap } = animator.getCurrent();
+  if (!snap) return;
+  if (e.key === 'x' || e.key === 'X') measurer.addHorizontalMeasure();
+  if (e.key === 'y' || e.key === 'Y') measurer.addVerticalMeasure();
+  if (e.key === 'd' || e.key === 'D' || e.key === 'Delete') measurer.clearMeasurements();
 });

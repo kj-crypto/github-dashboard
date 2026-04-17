@@ -26,6 +26,11 @@ wss.on('connection', (ws) => {
   console.log('Client connected');
 
   ws.on('message', (msg) => {
+    console.log('Received message:', msg.toString());
+
+    // TODO: process the command here
+    // wmctrl -i -a $(wmctrl -l -G | tail -n 2 | head -n 1 | awk '{print $1}')
+
     for (const client of wss.clients) {
       if (client !== ws && client.readyState === 1) {
         client.send(msg);

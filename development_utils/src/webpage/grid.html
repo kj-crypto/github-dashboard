@@ -1,19 +1,22 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
     <title>Grid</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/common.css" />
   </head>
   <body>
+    <!-- TODO: just for debugging. remove when finished -->
+    <h3 id="info">Focused at</h3>
     <svg id="grid">
-      <g id="grid-lines"></g>
+      <g id="grid-lines" shape-rendering="crispEdges"></g>
 
-      <line id="measure-line" stroke="red" stroke-width="1" visibility="hidden" />
-      <text id="measure-text" fill="red" font-size="14" visibility="hidden"></text>
-      <line id="snap-v" stroke="orange" stroke-width="1" visibility="hidden" />
-      <line id="snap-h" stroke="orange" stroke-width="1" visibility="hidden" />
-
+      <g id="snap-group">
+        <line id="snap-v" stroke="orange" stroke-width="1" visibility="hidden" />
+        <line id="snap-h" stroke="orange" stroke-width="1" visibility="hidden" />
+      </g>
+      <g id="measure-group"></g>
+      <g id="dimension-group"></g>
       <g id="ruler-h"></g>
       <g id="ruler-v"></g>
     </svg>

@@ -1,5 +1,4 @@
-/* prettier-ignore */
-import js from "@eslint/js";
+import js from '@eslint/js';
 import globals from 'globals';
 import json from '@eslint/json';
 import css from '@eslint/css';

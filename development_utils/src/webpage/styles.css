@@ -1,14 +1,9 @@
+@import './common.css';
+
 :root {
   --valid-bckg: #222;
   --valid-border: 1px solid #555;
   --panel-width: 600px;
-}
-
-body {
-  margin: 0;
-  background: #111;
-  color: #eee;
-  font-family: system-ui, sans-serif;
 }
 
 #main {
@@ -82,11 +77,6 @@ input.invalid:focus {
   border-color: #a62828;
   box-shadow: 0 0 6px #a62828aa;
   background: #2a0f0f;
-}
-
-#grid {
-  width: 100vw;
-  height: 100vh;
 }
 
 #status {
