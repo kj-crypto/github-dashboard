@@ -4,9 +4,8 @@ import { createWSClient } from './wsClient.js';
 const ws = createWSClient(`ws://${location.host}`);
 const svg = document.getElementById('grid');
 const gridGroup = document.getElementById('grid-lines');
-
-const measureLine = document.getElementById('measure-line');
-const measureText = document.getElementById('measure-text');
+const measureGroup = document.getElementById('measure-group');
+const dimGroup = document.getElementById('dimension-group');
 
 const defaultSettings = {
   offsetX: 0,

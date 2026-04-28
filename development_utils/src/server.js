@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import path from 'path';
+import { execSync } from 'child_process';
 
 const PORT = process.env.PORT || 8181;
 const app = express();
@@ -26,10 +27,15 @@ wss.on('connection', (ws) => {
   console.log('Client connected');
 
   ws.on('message', (msg) => {
-    console.log('Received message:', msg.toString());
+    const message = JSON.parse(msg.toString());
 
-    // TODO: process the command here
-    // wmctrl -i -a $(wmctrl -l -G | tail -n 2 | head -n 1 | awk '{print $1}')
+    if (message.type === 'clickedAndFocused') {
+      execSync("wmctrl -i -a $(wmctrl -l -G | tail -n 2 | head -n 1 | awk '{print $1}')", {
+        shell: true,
+        encoding: 'utf8',
+      });
+      return;
+    }
 
     for (const client of wss.clients) {
       if (client !== ws && client.readyState === 1) {
