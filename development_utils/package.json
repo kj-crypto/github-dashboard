@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "trap 'kill 0' EXIT; export VITE_DEV_SERVER=true PORT=8181 && node ./src/server.js & vite --force",
     "server": "node ./src/server.js",
-    "check": "eslint . && prettier --check ."
+    "check": "eslint . && prettier --check .",
+    "fix": "eslint . --fix && prettier --write ."
   },
   "dependencies": {
     "express": "^5.2.1",
