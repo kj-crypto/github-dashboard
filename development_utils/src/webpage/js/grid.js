@@ -324,9 +324,10 @@ const createRulers = function () {
   };
 };
 
-const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00', textPadding = 40) {
+const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00', textPadding = 40) {
   const measureH = [];
   const measureV = [];
+  let _settings = settings;
 
   let hIndex = 0;
   let vIndex = 0;
@@ -350,7 +351,7 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
     clickPending = true;
     setTimeout(() => (clickPending = false), 150);
 
-    const { snap } = animator.getCurrent();
+    const { snap } = _settings;
     if (!snap) return;
     if (isLeftClick(e)) addHorizontalMeasure();
     if (isRightClick(e)) addVerticalMeasure();
@@ -358,7 +359,7 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
   svg.addEventListener('contextmenu', (e) => e.preventDefault());
 
   window.addEventListener('focus', () => {
-    const { snap } = animator.getCurrent();
+    const { snap } = _settings;
 
     setTimeout(() => {
       if (snap && clickPending) {
@@ -370,14 +371,16 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
 
   const addVerticalMeasure = () => {
     if (lastSnapY === null) return;
+    const { offsetY, cellH } = _settings;
+    const raw = Math.round((lastSnapY - offsetY) / cellH);
 
-    let line = measureH[hIndex];
+    let line = measureH[hIndex]?.line;
     if (!line) {
       line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('stroke', strokeColor);
       line.setAttribute('stroke-width', strokeWidth);
       measureGroup.appendChild(line);
-      measureH[hIndex] = line;
+      measureH[hIndex] = { line, raw };
     }
 
     line.setAttribute('x1', 0);
@@ -387,19 +390,21 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
     line.style.display = 'block';
 
     hIndex = (hIndex + 1) % 2;
-    updateDimensions();
+    updateDimensions(_settings);
   };
 
   const addHorizontalMeasure = function () {
     if (lastSnapX === null) return;
+    const { offsetX, cellW } = _settings;
+    const col = Math.round((lastSnapX - offsetX) / cellW);
 
-    let line = measureV[vIndex];
+    let line = measureV[vIndex]?.line;
     if (!line) {
       line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('stroke', strokeColor);
       line.setAttribute('stroke-width', strokeWidth);
       measureGroup.appendChild(line);
-      measureV[vIndex] = line;
+      measureV[vIndex] = { line, col };
     }
 
     line.setAttribute('y1', 0);
@@ -409,7 +414,7 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
     line.style.display = 'block';
 
     vIndex = (vIndex + 1) % 2;
-    updateDimensions();
+    updateDimensions(_settings);
   };
 
   const drawHorizontalDimension = function (x1, x2, cellW, y) {
@@ -500,20 +505,19 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
     Object.values(dimV).forEach((el) => (el.style.display = 'block'));
   };
 
-  function updateDimensions() {
-    const { cellH, cellW } = animator.getCurrent();
+  function updateDimensions(settings) {
+    const { cellH, cellW } = settings;
     if (measureV.length >= 2 && measureV[0] && measureV[1]) {
-      const x1 = parseFloat(measureV[0].getAttribute('x1'));
-      const x2 = parseFloat(measureV[1].getAttribute('x1'));
+      const x1 = parseFloat(measureV[0].line.getAttribute('x1'));
+      const x2 = parseFloat(measureV[1].line.getAttribute('x1'));
       drawHorizontalDimension(x1, x2, cellW, textPadding);
     } else if (dimH) {
       Object.values(dimH).forEach((el) => (el.style.display = 'none'));
     }
 
-    // horizontal measurement lines → vertical dimension
     if (measureH.length >= 2 && measureH[0] && measureH[1]) {
-      const y1 = parseFloat(measureH[0].getAttribute('y1'));
-      const y2 = parseFloat(measureH[1].getAttribute('y1'));
+      const y1 = parseFloat(measureH[0].line.getAttribute('y1'));
+      const y2 = parseFloat(measureH[1].line.getAttribute('y1'));
       drawVerticalDimension(y1, y2, cellH, textPadding);
     } else if (dimV) {
       Object.values(dimV).forEach((el) => (el.style.display = 'none'));
@@ -535,9 +539,28 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
     }
   };
 
-  const windowResized = function () {
-    measureH.forEach((l) => l.setAttribute('x2', window.innerWidth));
-    measureV.forEach((l) => l.setAttribute('x2', window.innerWidth));
+  const update = function (settings) {
+    _settings = settings;
+    const { offsetX, offsetY, cellH, cellW } = settings;
+
+    measureH.forEach((measureData) => {
+      if (measureData && measureData.line && measureData.line.style.display !== 'none') {
+        const { row } = measureData;
+        const newY = offsetY + row * cellH;
+        measureData.line.setAttribute('y1', newY);
+        measureData.line.setAttribute('y2', newY);
+      }
+    });
+
+    measureV.forEach((measureData) => {
+      if (measureData && measureData.line && measureData.line.style.display !== 'none') {
+        const { col } = measureData;
+        const newX = offsetX + col * cellW;
+        measureData.line.setAttribute('x1', newX);
+        measureData.line.setAttribute('x2', newX);
+      }
+    });
+    updateDimensions(settings);
   };
 
   return {
@@ -545,22 +568,22 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
     addHorizontalMeasure,
     addVerticalMeasure,
     clearMeasurements,
-    windowResized,
+    update,
   };
 };
 
 const drawGrid = createGrid();
 const drawRulers = createRulers();
+const measurer = createMeasure(defaultSettings, 0.5);
 
 const animator = createGridAnimator((settings) => {
   drawGrid(settings);
   drawRulers(settings);
+  measurer.update(settings);
 }, defaultSettings);
 
 animator.setDuration(50);
-const measurer = createMeasure(animator, 0.5);
 enableSnapIndicator(animator, measurer);
-
 drawGrid(defaultSettings);
 
 ws.onMessage((msg) => {
@@ -576,7 +599,6 @@ ws.onStatusChange(function (status) {
 
 window.addEventListener('resize', () => {
   animator.push(animator.getCurrent());
-  measurer.windowResized();
 });
 
 window.addEventListener('keydown', (e) => {
