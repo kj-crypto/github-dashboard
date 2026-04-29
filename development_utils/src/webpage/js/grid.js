@@ -358,18 +358,13 @@ const createMeasure = function (animator, strokeWidth = 1.5, strokeColor = '#f00
   svg.addEventListener('contextmenu', (e) => e.preventDefault());
 
   window.addEventListener('focus', () => {
-    console.log('Window focused. clicked before: ' + clickPending);
-    const info = document.getElementById('info');
     const { snap } = animator.getCurrent();
 
     setTimeout(() => {
-      let text = `Focused at ${new Date().toLocaleTimeString()} Clicked: ${clickPending}`;
       if (snap && clickPending) {
         ws.sendJSON({ type: 'clickedAndFocused' });
-        text += ' WS: JSON send';
       }
       clickPending = false;
-      info.textContent = text;
     }, 100);
   });
 
@@ -563,7 +558,7 @@ const animator = createGridAnimator((settings) => {
 }, defaultSettings);
 
 animator.setDuration(50);
-const measurer = createMeasure(animator);
+const measurer = createMeasure(animator, 0.5);
 enableSnapIndicator(animator, measurer);
 
 drawGrid(defaultSettings);
