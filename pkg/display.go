@@ -2,6 +2,7 @@ package contribution
 
 import (
 	"fmt"
+	"github-dashboard/pkg/utils"
 	"strings"
 )
 
@@ -14,9 +15,6 @@ var squareDayDisplay = DayDisplay{
 	Empty: "□",
 	Full:  "■",
 }
-
-const Width = 2*53 + 5
-const Height = 8 * 2
 
 // GitHub contribution colors using RGB values
 var colorPalette = []string{
@@ -84,10 +82,14 @@ func formatWeekDays(dayNo int) string {
 
 func FormatCalendar(matrix [][]ContributionDay, leftPadding uint, withWeekHeader bool) string {
 	padding := strings.Repeat(" ", int(leftPadding))
-	calendar := FormatMonthHeader(matrix[0]) + "\n"
+	maxRowLength := int(len(matrix[0])*2) - 1
+	calendar := FormatMonthHeader(matrix[0])
+	calendar += strings.Repeat(" ", max(0, maxRowLength-utils.LenWithoutANSI(calendar)))
 	if withWeekHeader {
 		calendar = padding + formatWeekDays(0) + calendar
 	}
+	maxRowLength = utils.LenWithoutANSI(calendar)
+	calendar += "\n"
 
 	for dayNo, row := range matrix {
 		rowStr := ""
@@ -104,7 +106,8 @@ func FormatCalendar(matrix [][]ContributionDay, leftPadding uint, withWeekHeader
 		if withWeekHeader {
 			rowStr = formatWeekDays(dayNo) + rowStr
 		}
-		calendar += padding + strings.TrimRight(rowStr, " ") + "\n"
+		rowStr = padding + strings.TrimRight(rowStr, " ")
+		calendar += rowStr + strings.Repeat(" ", max(0, maxRowLength-utils.LenWithoutANSI(rowStr))) + "\n"
 	}
 	return strings.TrimRight(calendar, "\n")
 }
