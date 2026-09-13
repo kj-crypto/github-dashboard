@@ -372,7 +372,7 @@ const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00
   const addVerticalMeasure = () => {
     if (lastSnapY === null) return;
     const { offsetY, cellH } = _settings;
-    const raw = Math.round((lastSnapY - offsetY) / cellH);
+    const row = Math.round((lastSnapY - offsetY) / cellH);
 
     let line = measureH[hIndex]?.line;
     if (!line) {
@@ -380,7 +380,7 @@ const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00
       line.setAttribute('stroke', strokeColor);
       line.setAttribute('stroke-width', strokeWidth);
       measureGroup.appendChild(line);
-      measureH[hIndex] = { line, raw };
+      measureH[hIndex] = { line, row };
     }
 
     line.setAttribute('x1', 0);
