@@ -380,7 +380,6 @@ const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00
       line.setAttribute('stroke', strokeColor);
       line.setAttribute('stroke-width', strokeWidth);
       measureGroup.appendChild(line);
-      measureH[hIndex] = { line, row };
     }
 
     line.setAttribute('x1', 0);
@@ -389,6 +388,7 @@ const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00
     line.setAttribute('y2', lastSnapY);
     line.style.display = 'block';
 
+    measureH[hIndex] = { line, row };
     hIndex = (hIndex + 1) % 2;
     updateDimensions(_settings);
   };
@@ -404,7 +404,6 @@ const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00
       line.setAttribute('stroke', strokeColor);
       line.setAttribute('stroke-width', strokeWidth);
       measureGroup.appendChild(line);
-      measureV[vIndex] = { line, col };
     }
 
     line.setAttribute('y1', 0);
@@ -413,6 +412,7 @@ const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00
     line.setAttribute('x2', lastSnapX);
     line.style.display = 'block';
 
+    measureV[vIndex] = { line, col };
     vIndex = (vIndex + 1) % 2;
     updateDimensions(_settings);
   };

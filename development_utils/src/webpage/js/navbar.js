@@ -20,6 +20,9 @@ const statusText = status.querySelector('span:last-child');
 ws.onStatusChange((statusMsg) => {
   statusDot.className = `status-dot ${statusMsg}`;
   statusText.textContent = statusMsg;
+  if (statusMsg === 'connected') {
+    debouncedSendUpdate();
+  }
 });
 
 themeSelect.onchange = () => debouncedSendUpdate();

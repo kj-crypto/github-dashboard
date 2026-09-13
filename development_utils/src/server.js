@@ -25,16 +25,27 @@ const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
+  let lastSettings = null;
+  if (lastSettings) {
+    ws.send(JSON.stringify({ type: 'update', settings: lastSettings }));
+  }
 
   ws.on('message', (msg) => {
     const message = JSON.parse(msg.toString());
 
     if (message.type === 'clickedAndFocused') {
-      execSync("wmctrl -i -a $(wmctrl -l -G | tail -n 2 | head -n 1 | awk '{print $1}')", {
-        shell: true,
-        encoding: 'utf8',
-      });
+      execSync(
+        "wmctrl -i -a $(wmctrl -l -x | grep -i terminal-server | sort -rn -k 2 | tail -n 1 | awk '{print $1}')",
+        {
+          shell: true,
+          encoding: 'utf8',
+        }
+      );
       return;
+    }
+
+    if (message.type === 'update' && message.settings) {
+      lastSettings = message.settings;
     }
 
     for (const client of wss.clients) {
