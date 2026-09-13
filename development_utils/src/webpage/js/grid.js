@@ -525,8 +525,8 @@ const createMeasure = function (settings, strokeWidth = 1.5, strokeColor = '#f00
   }
 
   const clearMeasurements = function () {
-    measureH.forEach((l) => l.remove());
-    measureV.forEach((l) => l.remove());
+    measureH.forEach((el) => el.line.remove());
+    measureV.forEach((el) => el.line.remove());
     measureH.length = 0;
     measureV.length = 0;
     if (dimH) {
