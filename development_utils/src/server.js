@@ -22,10 +22,10 @@ if (!isVite) {
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
+let lastSettings = null;
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
-  let lastSettings = null;
   if (lastSettings) {
     ws.send(JSON.stringify({ type: 'update', settings: lastSettings }));
   }
