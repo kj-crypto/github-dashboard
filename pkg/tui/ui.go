@@ -32,7 +32,11 @@ type terminalSize struct {
 	height int
 }
 
-type Alignment int
+type tabbleSizes struct {
+	headerWidth  int
+	headerHeight int
+	cellHeight   int
+}
 
 const (
 	AlignmentHorizontal Alignment = iota
@@ -163,26 +167,41 @@ func initBrowserModel(data reposDataMsg, size terminalSize) *BrowserModel {
 	return m
 }
 
-func (m *BrowserModel) resize(term terminalSize) *BrowserModel {
-	log.Printf("Actual table width: %d", m.reposTable.Width())
-	// maxHorizontalSpace := 2 * (m.reposTable.Width() + 2*LeftRightPadding)
-	// minHorizontalSpace := int(0.75 * float64(maxHorizontalSpace))
+func (m *BrowserModel) resize(term terminalSize) {
+	log.Printf("[RESIZE] Terminal size: %dx%d", term.width, term.height)
+	ts := m.tableSizes
+	reposTable := &m.reposTable
+	readme := &m.readme
+	readmeVp := &readme.vp
 
-	// if term.width >= maxHorizontalSpace {
-	// 	m.readmeViewport.SetWidth(m.reposTable.Width())
-	// } else if term.width < minHorizontalSpace {
-	// 	m.alignment = AlignmentVertical
-	// 	m.readmeViewport.SetWidth(m.reposTable.Width())
-	// } else {
-	// 	width := term.width - m.reposTable.Width() - 4*LeftRightPadding
-	// 	m.readmeViewport.SetWidth(width)
-	// }
+	freeHorizontalSpace := term.width - ts.headerWidth - tableStyle.GetHorizontalFrameSize()
+	readmeWidth := freeHorizontalSpace - tableStyle.GetHorizontalFrameSize()
+	log.Printf("[RESIZE] Free horizontal space: %d, readme width: %d", freeHorizontalSpace, readmeWidth)
+	if readmeWidth < ts.headerWidth/2 {
+		m.showReadme = false
+	} else {
+		w := min(readmeWidth, ts.headerWidth)
+		log.Printf("[RESIZE] Setting width to: %d", w)
+		readmeVp.SetWidth(w)
+		renderer, _ := glamour.NewTermRenderer(
+			glamour.WithStandardStyle("dark"),
+			glamour.WithWordWrap(w),
+		)
 
-	// if m.alignment == AlignmentVertical {
-	// 	m.readmeViewport.SetHeight(term.height - 3)
-	// }
+		content, _ := renderer.Render(readme.markdown)
+		readmeVp.SetContent(content)
+		readmeVp.GotoTop()
+		m.showReadme = true
 
-	return m
+	}
+	freeVerticalSpace := term.height - 8 - contributionsStyle.GetVerticalFrameSize() - tableStyle.GetVerticalFrameSize()
+	maxHeight := len(reposTable.Rows())*ts.cellHeight + ts.headerHeight
+	log.Printf("[RESIZE] Free vertical space: %d, max height: %d", freeVerticalSpace, maxHeight)
+	h := min(freeVerticalSpace, maxHeight)
+	log.Printf("[RESIZE] Setting height to: %d", h)
+	reposTable.SetHeight(h)
+	reposTable.SetWidth(ts.headerWidth)
+	readmeVp.SetHeight(h)
 }
 
 func fetchData(username string, token string) tea.Cmd {
