@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	contribution "github-dashboard/pkg"
 	"github-dashboard/pkg/tui"
+	"github-dashboard/pkg/utils"
 	"io"
 	"log"
 	"os"
@@ -46,7 +46,7 @@ func setupFileLogger() {
 func main() {
 	setupFileLogger()
 
-	token := contribution.GetToken()
+	token := utils.GetToken()
 	if token == "" {
 		log.Fatal("GITHUB_TOKEN not set")
 	}

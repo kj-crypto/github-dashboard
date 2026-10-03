@@ -35,15 +35,25 @@ func GetRepositories(token, username string) ([]Repository, error) {
                     primaryLanguage {
                         name
                     }
-                    object(expression: "HEAD:README.md") {
-                        ... on Blob {
-                            text
-                        }
-                    }
-                }
+                    readme1: object(expression: "HEAD:README.md") { ...BlobText }
+					readme2: object(expression: "HEAD:Readme.md") { ...BlobText }
+					readme3: object(expression: "HEAD:readme.md") { ...BlobText }
+					readme4: object(expression: "HEAD:README") { ...BlobText }
+					readme5: object(expression: "HEAD:Readme") { ...BlobText }
+					readme6: object(expression: "HEAD:readme") { ...BlobText }
+					readme7: object(expression: "HEAD:README.rst") { ...BlobText }
+					readme8: object(expression: "HEAD:Readme.rst") { ...BlobText }
+					readme9: object(expression: "HEAD:readme.rst") { ...BlobText }
+					readme10: object(expression: "HEAD:README.adoc") { ...BlobText }
+					readme11: object(expression: "HEAD:Readme.adoc") { ...BlobText }
+					readme12: object(expression: "HEAD:readme.adoc") { ...BlobText }
+				}
             }
         }
     }
+	fragment BlobText on Blob {
+		text
+	}
     `
 
 	requestBody := map[string]interface{}{
@@ -92,14 +102,51 @@ func GetRepositories(token, username string) ([]Repository, error) {
 						Language    struct {
 							Name string `json:"name"`
 						} `json:"primaryLanguage"`
-						Object struct {
+						Readme1 struct {
 							Text string `json:"text"`
-						} `json:"object"`
+						} `json:"readme1"`
+						Readme2 struct {
+							Text string `json:"text"`
+						} `json:"readme2"`
+						Readme3 struct {
+							Text string `json:"text"`
+						} `json:"readme3"`
+						Readme4 struct {
+							Text string `json:"text"`
+						} `json:"readme4"`
+						Readme5 struct {
+							Text string `json:"text"`
+						} `json:"readme5"`
+						Readme6 struct {
+							Text string `json:"text"`
+						} `json:"readme6"`
+						Readme7 struct {
+							Text string `json:"text"`
+						} `json:"readme7"`
+						Readme8 struct {
+							Text string `json:"text"`
+						} `json:"readme8"`
+						Readme9 struct {
+							Text string `json:"text"`
+						} `json:"readme9"`
+						Readme10 struct {
+							Text string `json:"text"`
+						} `json:"readme10"`
+						Readme11 struct {
+							Text string `json:"text"`
+						} `json:"readme11"`
+						Readme12 struct {
+							Text string `json:"text"`
+						} `json:"readme12"`
 					} `json:"nodes"`
 				} `json:"repositories"`
 			} `json:"user"`
 		} `json:"data"`
 	}
+
+	// bodyBytes, _ := io.ReadAll(resp.Body)
+	// fmt.Println(string(bodyBytes))
+	// os.Exit(0)
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, err
@@ -107,6 +154,28 @@ func GetRepositories(token, username string) ([]Repository, error) {
 
 	var repos []Repository
 	for _, node := range response.Data.User.Repositories.Nodes {
+		readmeContent := ""
+		for _, readme := range []struct {
+			Text string `json:"text"`
+		}{
+			node.Readme1,
+			node.Readme2,
+			node.Readme3,
+			node.Readme4,
+			node.Readme5,
+			node.Readme6,
+			node.Readme7,
+			node.Readme8,
+			node.Readme9,
+			node.Readme10,
+			node.Readme11,
+			node.Readme12,
+		} {
+			if readme.Text != "" {
+				readmeContent = readme.Text
+				break
+			}
+		}
 		repo := Repository{
 			Name:        node.Name,
 			Description: node.Description,
@@ -114,7 +183,7 @@ func GetRepositories(token, username string) ([]Repository, error) {
 			Stars:       node.Stars,
 			Forks:       node.Forks,
 			Language:    node.Language.Name,
-			Readme:      node.Object.Text,
+			Readme:      readmeContent,
 			UpdatedAt:   node.UpdatedAt,
 		}
 		repos = append(repos, repo)
