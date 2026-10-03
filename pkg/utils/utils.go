@@ -6,16 +6,18 @@ import (
 	"unicode/utf8"
 
 	"charm.land/bubbles/v2/table"
+	"charm.land/lipgloss/v2"
 )
 
 func GetToken() string {
 	return os.Getenv("GITHUB_TOKEN")
 }
 
-func GetHeaderWidth(t *table.Model) int {
+func GetHeaderWidth(t *table.Model, s *lipgloss.Style) int {
 	w := 0
+	p := s.GetHorizontalFrameSize()
 	for _, col := range t.Columns() {
-		w += col.Width
+		w += col.Width + p
 	}
 	return w
 }

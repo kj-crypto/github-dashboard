@@ -7,8 +7,7 @@ import (
 
 	contribution "github-dashboard/pkg"
 	"github-dashboard/pkg/github"
-
-	display "github-dashboard/pkg"
+	"github-dashboard/pkg/utils"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/table"
@@ -38,18 +37,18 @@ type tabbleSizes struct {
 	cellHeight   int
 }
 
-const (
-	AlignmentHorizontal Alignment = iota
-	AlignmentVertical
-)
+type Readme struct {
+	vp       viewport.Model
+	markdown string
+	renderer *glamour.TermRenderer
+}
 
 type BrowserModel struct {
-	reposTable      table.Model
-	readmeViewport  viewport.Model
-	viewportFocused bool
-	alignment       Alignment
-	tableWidth      int
-	minTableHeight  int
+	reposTable    table.Model
+	readme        Readme
+	readmeFocused bool
+	showReadme    bool
+	tableSizes    tabbleSizes
 }
 
 func (m BrowserModel) Init() tea.Cmd {
@@ -70,17 +69,22 @@ type Model struct {
 	terminalSize terminalSize
 }
 
-const (
-	MinWidth         = display.Width
-	MinHeight        = display.Height + TopBottomPadding*2 + 3
-	TopBottomPadding = 1
-	LeftRightPadding = 2
-)
-
+// Styes
 var tableStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder())
+
+var contributionsStyle = lipgloss.NewStyle()
+
+var reposTableStyle = table.DefaultStyles()
+var reposTableHeaderStyle = reposTableStyle.Header.
 	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("63")).
-	Padding(TopBottomPadding, LeftRightPadding)
+	BorderForeground(lipgloss.Color("240")).
+	BorderBottom(true).
+	Bold(true)
+
+var headerHeight = lipgloss.Height(reposTableHeaderStyle.Render("Temp"))
+var MinWidth = 2*53 + 5 - 1 + contributionsStyle.GetHorizontalFrameSize()
+var MinHeight = 7 + 1 + tableStyle.GetVerticalFrameSize() + headerHeight + 1
 
 func InitModel(username string) tea.Model {
 	sp := spinner.New()
@@ -117,50 +121,39 @@ func initBrowserModel(data reposDataMsg, size terminalSize) *BrowserModel {
 			fmt.Sprintf("%d", repo.Stars),
 		})
 	}
-
-	tableWidth := 0
-	for _, col := range columns {
-		tableWidth += col.Width
-	}
-
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		table.WithWidth(tableWidth),
-		// TODO: remove it here
-		table.WithHeight(20),
 	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(true)
-	s.Selected = s.Selected.
+	reposTableStyle.Header = reposTableHeaderStyle
+	reposTableStyle.Selected = reposTableStyle.Selected.
 		Foreground(lipgloss.Color("229")).
 		Background(lipgloss.Color("57")).
 		Bold(true)
-	t.SetStyles(s)
+	t.SetStyles(reposTableStyle)
 
-	cellXoffset := s.Cell.GetHorizontalFrameSize()
-	log.Printf("Table width: %d", tableWidth)
-	log.Printf("Header horizontal frame size: %d", s.Header.GetHorizontalFrameSize())
-	log.Printf("Style frame size: %d", tableStyle.GetHorizontalFrameSize())
-	log.Printf("Cell X offset: %d, with all columns: %d", cellXoffset, cellXoffset*len(t.Columns()))
-	tableWidth += s.Header.GetHorizontalFrameSize() + tableStyle.GetHorizontalFrameSize() + 2*LeftRightPadding
-	log.Printf("Total table width: %d", tableWidth)
+	headerWidth := utils.GetHeaderWidth(&t, &reposTableHeaderStyle)
+	log.Printf("Header width x height: %d x %d", headerWidth, headerHeight)
+	log.Printf("Total table width: %d", headerWidth+tableStyle.GetHorizontalFrameSize())
 
-	vp := viewport.New(viewport.WithWidth(80), viewport.WithHeight(21))
-	// vp := viewport.New(viewport.WithWidth(size.width), viewport.WithHeight(size.height))
+	vp := viewport.New()
+	vp.Style = lipgloss.NewStyle().Padding(0)
 
 	m := &BrowserModel{
-		reposTable:      t,
-		readmeViewport:  vp,
-		viewportFocused: false,
-		alignment:       AlignmentHorizontal,
-		tableWidth:      tableWidth,
+		reposTable: t,
+		readme: Readme{
+			vp:       vp,
+			markdown: "",
+			renderer: nil,
+		},
+		readmeFocused: false,
+		showReadme:    true,
+		tableSizes: tabbleSizes{
+			headerWidth:  headerWidth,
+			headerHeight: headerHeight,
+			cellHeight:   1 + reposTableStyle.Cell.GetVerticalFrameSize(),
+		},
 	}
 	m.updateReadme(data.repositories)
 	m.resize(size)
@@ -187,6 +180,7 @@ func (m *BrowserModel) resize(term terminalSize) {
 			glamour.WithStandardStyle("dark"),
 			glamour.WithWordWrap(w),
 		)
+		readme.renderer = renderer
 
 		content, _ := renderer.Render(readme.markdown)
 		readmeVp.SetContent(content)
@@ -272,7 +266,7 @@ func fetchData(username string, token string) tea.Cmd {
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		fetchData(m.username, contribution.GetToken()),
+		fetchData(m.username, utils.GetToken()),
 	)
 }
 
@@ -294,7 +288,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.error = ""
 		}
 		if !m.isLoading && m.error == "" {
-			m.browserModel = m.browserModel.resize(m.terminalSize)
+			m.browserModel.resize(m.terminalSize)
 		}
 		return m, nil
 	case tea.KeyMsg:
@@ -338,12 +332,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *BrowserModel) update(msg tea.KeyMsg, repos []github.Repository) tea.Cmd {
 	switch msg.String() {
 	case "esc", "left", "h", "right", "l":
-		m.viewportFocused = !m.viewportFocused
+		m.readmeFocused = !m.readmeFocused
 		return nil
 	default:
-		if m.viewportFocused {
+		if m.readmeFocused {
 			var cmd tea.Cmd
-			m.readmeViewport, cmd = m.readmeViewport.Update(msg)
+			m.readme.vp, cmd = m.readme.vp.Update(msg)
 			return cmd
 
 		} else {
@@ -365,22 +359,16 @@ func (m *BrowserModel) updateReadme(repos []github.Repository) {
 		return
 	}
 
-	// Get the README content
-	readme := repos[selectedIdx].Readme
-	if readme == "" {
-		readme = "# No README available\n\nThis repository doesn't have a README file."
+	text := repos[selectedIdx].Readme
+	if text == "" {
+		text = "# No README available\n\nThis repository doesn't have a README file."
 	}
-
-	// Render markdown
-	width := m.readmeViewport.Width() - 4 // TODO: Account for padding
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(width),
-	)
-
-	content, _ := renderer.Render(readme)
-	m.readmeViewport.SetContent(content)
-	m.readmeViewport.GotoTop()
+	m.readme.markdown = text
+	if m.readme.renderer != nil {
+		content, _ := m.readme.renderer.Render(text)
+		m.readme.vp.SetContent(content)
+		m.readme.vp.GotoTop()
+	}
 }
 
 func (m Model) View() tea.View {
@@ -396,42 +384,34 @@ func (m Model) View() tea.View {
 		v.AltScreen = true
 		return v
 	}
-	v := m.browserModel.view(m.data.contributions)
+	v := m.browserModel.view(m.data.contributions, m.terminalSize.width)
 	v.AltScreen = true
 	return v
 }
 
-func (m BrowserModel) view(contributions string) tea.View {
+func (m BrowserModel) view(contributions string, width int) tea.View {
 	style := tableStyle
-	if m.viewportFocused {
+	if m.readmeFocused {
 		style = style.BorderStyle(lipgloss.ThickBorder())
 	}
 
 	tableView := tableStyle.Render(m.reposTable.View())
-	view := style.Render(m.readmeViewport.View())
+	view := style.Render(m.readme.vp.View())
 
 	var details string
-	if m.alignment == AlignmentHorizontal {
+	if m.showReadme {
 		details = lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			tableView,
 			view,
 		)
 	} else {
-		details = lipgloss.JoinVertical(
-			lipgloss.Left,
-			tableView,
-			view,
-		)
+		details = tableView
 	}
-	style = lipgloss.NewStyle().
-		BorderStyle(lipgloss.BlockBorder()).
-		BorderForeground(lipgloss.Color("240"))
 	container := lipgloss.JoinVertical(
 		lipgloss.Left,
-		// lipgloss.PlaceHorizontal(contribution.Width, lipgloss.Center, contributions),
-		style.Render(contributions),
-		details,
+		lipgloss.PlaceHorizontal(width, lipgloss.Center, contributionsStyle.Render(contributions)),
+		lipgloss.PlaceHorizontal(width, lipgloss.Center, details),
 	)
 	return tea.NewView(container)
 }
