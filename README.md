@@ -20,7 +20,7 @@ go install github.com/kj-crypto/github-dashboard@latest
 ```bash
 git clone https:// github.com/kj-crypto/github-dashboard.git 
 cd github-dashboard
-go build -mod=readonly -trimpath -ldflags="-s -w" -o github-dashboard ./cmd/cli/dashboard.go
+go build -mod=readonly -trimpath -ldflags="-s -w" -o github-cli ./cmd/cli.go
 ```
 
 ## Usage
