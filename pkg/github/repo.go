@@ -144,10 +144,6 @@ func GetRepositories(token, username string) ([]Repository, error) {
 		} `json:"data"`
 	}
 
-	// bodyBytes, _ := io.ReadAll(resp.Body)
-	// fmt.Println(string(bodyBytes))
-	// os.Exit(0)
-
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, err
 	}
