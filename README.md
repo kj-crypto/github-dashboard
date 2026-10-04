@@ -26,7 +26,7 @@ go build -mod=readonly -trimpath -ldflags="-s -w" -o github-cli ./cmd/cli.go
 ## Usage
 1. Setup Github token `export GITHUB_TOKEN=your_github_token`
 2. Optional: Enable debug logging `export GITHUB_DASHBOARD_DEBUG=on`. Logs will be written to `logs/*.log`
-3. Run `github-dashboard <username>`
+3. Run `github-cli dashboard <username>`. For more options run `github-cli --help`
 
 ### Navigation
  - `↑/↓`: navigate repositories
